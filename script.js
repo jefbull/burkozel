@@ -1,203 +1,275 @@
-let tg = window.Telegram.WebApp;
-tg.expand();
-
-// Инициализация имени пользователя из Telegram
-let userNameElem = document.getElementById("user-name");
-if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-    let user = tg.initDataUnsafe.user;
-    userNameElem.innerText = user.first_name || "Игрок";
+// Безопасное подключение Telegram WebApp
+const tg = window.Telegram?.WebApp;
+if (tg && typeof tg.expand === 'function') {
+    tg.expand();
 }
 
-// Колода и состояние игры
-const suits = [
-    { symbol: '♠', name: 'spades', color: 'black' },
-    { symbol: '♣', name: 'clubs', color: 'black' },
-    { symbol: '♥', name: 'hearts', color: 'red' },
-    { symbol: '♦', name: 'diams', color: 'red' }
-];
-
-const ranks = [
-    { name: '6', points: 0, power: 1 },
-    { name: '7', points: 0, power: 2 },
-    { name: '8', points: 0, power: 3 },
-    { name: '9', points: 0, power: 4 },
-    { name: 'J', points: 2, power: 5 },
-    { name: 'Q', points: 3, power: 6 },
-    { name: 'K', points: 4, power: 7 },
-    { name: '10', points: 10, power: 8 },
-    { name: 'A', points: 11, power: 9 }
-];
+const suits = ['♠', '♥', '♦', '♣'];
+// Порядок значений для Буркозэла: от шестерки до туза
+const values = ['6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
 
 let deck = [];
-let playerCards = [];
-let botCards = [];
-let trickCards = [];
+let playerHand = [];
+let botHand = [];
 let trumpCard = null;
-let playerScoreTotal = 0;
-let botScoreTotal = 0;
-let turn = 'player'; // 'player' или 'bot'
+let currentTrick = []; // Карты на столе (текущая взятка)
+let turnOwner = 'player'; // Кто ходит ('player' или 'bot')
+let penaltyPoints = { player: 0, bot: 0 };
+let gameActive = false;
 
+// Стоимость карт в очках
+function getCardPoints(card) {
+    switch (card.value) {
+        case 'Т': return 11;
+        case '10': return 10;
+        case 'К': return 4;
+        case 'Д': return 3;
+        case 'В': return 2;
+        default: return 0; // 6, 7, 8, 9
+    }
+}
+
+// Старшинство карт для сравнения
+function getCardRank(card) {
+    return values.indexOf(card.value);
+}
+
+// Создание и перемешивание колоды
 function createDeck() {
     deck = [];
     for (let suit of suits) {
-        for (let rank of ranks) {
-            deck.push({
-                suit: suit.symbol,
-                color: suit.color,
-                name: rank.name,
-                points: rank.points,
-                power: rank.power
-            });
+        for (let val of values) {
+            deck.push({ suit, value: val });
         }
     }
-    // Перемешивание колоды
-    for (let i = deck.length - 1; i > 0; i--) {
-        let j = Math.floor(Math.random() * (i + 1));
-        [deck[i], deck[j]] = [deck[j], deck[i]];
+    deck.sort(() => Math.random() - 0.5);
+}
+
+// Проверка особых комбинаций на руках
+function checkCombinations(hand, trumpSuit) {
+    // 1. «Бура» — 4 козыря
+    const trumpCount = hand.filter(c => c.suit === trumpSuit).length;
+    if (trumpCount === 4) return { type: 'бура', text: '🔥 Бура! (4 козыря) — мгновенная победа!' };
+
+    // 2. «Москва» — 3 туза (включая козырной)
+    const aces = hand.filter(c => c.value === 'Т');
+    if (aces.length === 3) return { type: 'москва', text: '⭐ Москва! (3 туза) — право внеочередного хода!' };
+
+    // 3. «4 конца» — 4 десятки или 4 туза
+    const tens = hand.filter(c => c.value === '10');
+    if (tens.length === 4 || aces.length === 4) return { type: '4_конца', text: '👑 4 конца! — право внеочередного хода!' };
+
+    // 4. «Молодка» — 4 карты одной некозырной масти
+    for (let suit of suits) {
+        if (suit !== trumpSuit) {
+            const suitCards = hand.filter(c => c.suit === suit);
+            if (suitCards.length === 4) return { type: 'молодка', text: '⚡ Молодка! (4 карты одной масти) — право внеочередного хода!' };
+        }
     }
+
+    return null;
+}
+
+// Рендер карт на экране
+function renderCards(hand, elementId, isInteractive = false) {
+    const container = document.getElementById(elementId);
+    if (!container) return;
+    container.innerHTML = '';
+    
+    hand.forEach((card, index) => {
+        const div = document.createElement('div');
+        const isRed = card.suit === '♥' || card.suit === '♦';
+        div.className = `card ${isRed ? 'red' : ''}`;
+        div.textContent = `${card.value}${card.suit}`;
+        
+        if (isInteractive) {
+            div.style.cursor = 'pointer';
+            div.onclick = () => selectCardToPlay(index);
+        }
+        container.appendChild(div);
+    });
 }
 
 function startGame() {
     createDeck();
-    playerCards = [];
-    botCards = [];
-    trickCards = [];
     
     // Раздаем по 4 карты
-    for (let i = 0; i < 4; i++) {
-        playerCards.push(deck.pop());
-        botCards.push(deck.pop());
+    playerHand = [deck.pop(), deck.pop(), deck.pop(), deck.pop()];
+    botHand = [deck.pop(), deck.pop(), deck.pop(), deck.pop()];
+    
+    // Определяем козырь (последняя карта из колоды под низ или открытая)
+    trumpCard = deck[deck.length - 1];
+    
+    // Рендерим козырь на столе
+    const trumpContainer = document.getElementById('trump-container');
+    if (trumpContainer) {
+        const isRed = trumpCard.suit === '♥' || trumpCard.suit === '♦';
+        trumpContainer.innerHTML = `<div class="card ${isRed ? 'red' : ''}" style="margin:0;">${trumpCard.value}${trumpCard.suit}</div>`;
     }
 
-    // Определяем козырь из оставшихся в колоде
-    trumpCard = deck.pop();
-    
-    document.getElementById("status-message").innerText = "Ваш ход! Выберите карту.";
-    document.getElementById("btn-start").innerText = "Заново";
-    document.getElementById("btn-pass").disabled = false;
+    gameActive = true;
+    currentTrick = [];
+    turnOwner = 'player'; // Игрок начинает первый ход
 
-    renderTable();
-}
+    document.getElementById('btn-start').textContent = 'Перезапустить';
+    document.getElementById('btn-pass').disabled = false;
+    document.getElementById('status-message').textContent = 'Ваш ход! Выберите карты для атаки.';
 
-function renderCardHTML(card, isHidden = false) {
-    if (isHidden) {
-        return `<div class="card card-back"></div>`;
-    }
-    let colorClass = card.color === 'red' ? 'red' : '';
-    return `
-        <div class="card ${colorClass}">
-            <div class="card-corner top-left">
-                <span class="card-value">${card.name}</span>
-                <span class="card-suit-small">${card.suit}</span>
-            </div>
-            <div class="card-center-suit">${card.suit}</div>
-            <div class="card-corner bottom-right">
-                <span class="card-value">${card.name}</span>
-                <span class="card-suit-small">${card.suit}</span>
-            </div>
-        </div>
-    `;
-}
-
-function renderTable() {
-    // Рендер козыря
-    let trumpElem = document.getElementById("trump-container");
-    trumpElem.innerHTML = trumpCard ? renderCardHTML(trumpCard) : '';
-
-    // Рендер карт бота (рубашкой вверх)
-    let botContainer = document.getElementById("bot-cards");
-    botContainer.innerHTML = botCards.map(() => `<div class="card card-back"></div>`).join('');
-    document.getElementById("bot-cards-count").innerText = `${botCards.length} карт`;
-
-    // Рендер карт на столе
-    let trickContainer = document.getElementById("trick-cards");
-    trickContainer.innerHTML = trickCards.map(c => renderCardHTML(c)).join('');
-
-    // Рендер карт игрока (кликабельные)
-    let playerContainer = document.getElementById("player-cards");
-    playerContainer.innerHTML = playerCards.map((card, index) => {
-        let colorClass = card.color === 'red' ? 'red' : '';
-        return `
-            <div class="card ${colorClass}" onclick="playCard(${index})">
-                <div class="card-corner top-left">
-                    <span class="card-value">${card.name}</span>
-                    <span class="card-suit-small">${card.suit}</span>
-                </div>
-                <div class="card-center-suit">${card.suit}</div>
-                <div class="card-corner bottom-right">
-                    <span class="card-value">${card.name}</span>
-                    <span class="card-suit-small">${card.suit}</span>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    document.getElementById("game-score").innerText = `Очки: ${playerScoreTotal} / 31`;
-}
-
-function playCard(index) {
-    if (turn !== 'player') return;
-
-    let card = playerCards.splice(index, 1)[0];
-    trickCards.push(card);
-    renderTable();
-
-    turn = 'bot';
-    document.getElementById("status-message").innerText = "Ход противника...";
-
-    setTimeout(botTurn, 1000);
-}
-
-function botTurn() {
-    if (botCards.length === 0) return;
-
-    // Бот ходит случайной картой из своих
-    let botCardIndex = Math.floor(Math.random() * botCards.length);
-    let card = botCards.splice(botCardIndex, 1)[0];
-    trickCards.push(card);
-
-    renderTable();
-
-    // Завершение взятки через секунду
-    setTimeout(() => {
-        resolveTrick();
-    }, 1200);
-}
-
-function resolveTrick() {
-    // Подсчет очков взятки
-    let trickPoints = trickCards.reduce((sum, c) => sum + c.points, 0);
-    
-    // Для упрощения: кто положил последнюю карту / старшую — забирает взятку (здесь упрощенно отдает игроку или боту)
-    playerScoreTotal += trickPoints;
-    trickCards = [];
-    
-    // Добор карт из колоды, если они есть
-    while (playerCards.length < 4 && deck.length > 0) {
-        playerCards.push(deck.pop());
-    }
-    while (botCards.length < 4 && deck.length > 0) {
-        botCards.push(deck.pop());
+    // Проверяем комбинации на старте
+    const playerCombo = checkCombinations(playerHand, trumpCard.suit);
+    if (playerCombo) {
+        if (playerCombo.type === 'бура') {
+            endGame(`🎉 Вы собрали Буру! Победа в партии!`);
+            return;
+        } else {
+            document.getElementById('status-message').textContent = playerCombo.text;
+        }
     }
 
-    turn = 'player';
+    updateUI();
+}
+
+function updateUI() {
+    renderCards(playerHand, 'player-cards', turnOwner === 'player');
+    // Карты бота показываем рубашкой вверх (просто количество)
+    const botContainer = document.getElementById('bot-cards');
+    if (botContainer) {
+        botContainer.innerHTML = '';
+        botHand.forEach(() => {
+            const div = document.createElement('div');
+            div.className = 'card card-back';
+            div.textContent = '🂠';
+            botContainer.appendChild(div);
+        });
+    }
+
+    renderCards(currentTrick, 'trick-cards');
+    document.getElementById('bot-cards-count').textContent = `${botHand.length} карт`;
+    document.getElementById('game-score').textContent = `Штраф — Вы: ${penaltyPoints.player} | Бот: ${penaltyPoints.bot} (До 12)`;
+}
+
+// Выбор карты игроком для хода
+let selectedCardsIndices = [];
+function selectCardToPlay(index) {
+    if (!gameActive || turnOwner !== 'player') return;
     
-    if (playerScoreTotal >= 31) {
-        document.getElementById("status-message").innerText = "🎉 Вы выиграли партию в Буркозла!";
-        document.getElementById("btn-pass").disabled = true;
+    const card = playerHand[index];
+    // Логика выбора: можно выбрать карты только одного достоинства для совместного захода
+    if (selectedCardsIndices.length > 0) {
+        const firstCard = playerHand[selectedCardsIndices[0]];
+        if (card.value !== firstCard.value) {
+            alert('Можно ходить только картами одного достоинства!');
+            return;
+        }
+    }
+
+    // Переключаем выбор
+    const pos = selectedCardsIndices.indexOf(index);
+    if (pos > -1) {
+        selectedCardsIndices.splice(pos, 1);
     } else {
-        document.getElementById("status-message").innerText = `Взятка ваша! Получено +${trickPoints} очков. Ваш ход.`;
+        selectedCardsIndices.push(index);
     }
 
-    renderTable();
+    // Подсветка выбранных карт визуально
+    const container = document.getElementById('player-cards');
+    Array.from(container.children.forEach, () => {}); // Можно добавить класс .selected в CSS по желанию
 }
 
-function passToken() {
-    passTurn();
-}
-
+// Функция паса / передачи хода / отбития
 function passTurn() {
-    trickCards = [];
-    document.getElementById("status-message").innerText = "Пас. Ход переходит к противнику.";
-    renderTable();
+    if (!gameActive) return;
+    
+    if (turnOwner === 'player' && selectedCardsIndices.length > 0) {
+        // Ход игрока совершен
+        currentTrick = selectedCardsIndices.map(i => playerHand[i]);
+        // Удаляем карты из руки игрока
+        playerHand = playerHand.filter((_, i) => !selectedCardsIndices.includes(i));
+        selectedCardsIndices = [];
+
+        // Ход переходит к боту — он должен отбиться
+        turnOwner = 'bot';
+        document.getElementById('status-message').textContent = 'Бот думает над ответом...';
+        updateUI();
+
+        setTimeout(botDefense, 1000);
+    }
+}
+
+// Ответ бота на атаку игрока
+function botDefense() {
+    if (!gameActive) return;
+
+    // Бот пытается отбить карты
+    let canDefend = true;
+    let defenseCards = [];
+
+    for (let attackCard of currentTrick) {
+        // Ищем подходящую карту у бота (той же масти выше рангом или козырь)
+        let defendingCard = botHand.find(c => c.suit === attackCard.suit && getCardRank(c) > getCardRank(attackCard));
+        if (!defendingCard) {
+            // Ищем козырь
+            defendingCard = botHand.find(c => c.suit === trumpCard.suit);
+        }
+
+        if (defendingCard) {
+            defenseCards.push(defendingCard);
+            botHand = botHand.filter(c => c !== defendingCard);
+        } else {
+            canDefend = false;
+            break;
+        }
+    }
+
+    if (canDefend && defenseCards.length === currentTrick.length) {
+        // Бот успешно отбился! Взятка идет боту
+        document.getElementById('status-message').textContent = 'Бот успешно отбился и забрал взятку!';
+        turnOwner = 'bot';
+    } else {
+        // Бот не смог отбиться, сбрасывает карты и взятка достается игроку
+        document.getElementById('status-message').textContent = 'Бот не смог отбиться! Взятка ваша.';
+        turnOwner = 'player';
+    }
+
+    currentTrick = [];
+    refillHands();
+    updateUI();
+
+    if (turnOwner === 'bot') {
+        setTimeout(botAttack, 1200);
+    }
+}
+
+// Атака бота
+function botAttack() {
+    if (!gameActive || botHand.length === 0) return;
+
+    // Бот ходит случайной картой
+    const attackCard = botHand.splice(0, 1)[0];
+    currentTrick = [attackCard];
+    turnOwner = 'player';
+    
+    document.getElementById('status-message').textContent = 'Бот сделал ход! Попробуйте отбиться.';
+    updateUI();
+}
+
+// Добор карт до 4 штук после взятки
+function refillHands() {
+    while (playerHand.length < 4 && deck.length > 0) {
+        playerHand.push(deck.pop());
+    }
+    while (botHand.length < 4 && deck.length > 0) {
+        botHand.push(deck.pop());
+    }
+
+    // Если карты в колоде закончились и у кого-то кончились карты на руках — конец партии
+    if (deck.length === 0 && (playerHand.length === 0 || botHand.length === 0)) {
+        endGame('Раунд окончен! Подсчет штрафных очков...');
+    }
+}
+
+function endGame(message) {
+    gameActive = false;
+    document.getElementById('status-message').textContent = message;
+    document.getElementById('btn-pass').disabled = true;
 }
