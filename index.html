@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Буркозёл</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div class="user-profile">
+            <span id="user-name" class="user-name">Игрок</span>
+            <span id="game-score" class="score-badge">Очки: 0 / 31</span>
+        </div>
+
+        <h1>🐐 Буркозёл</h1>
+        
+        <!-- Колода карт и козырь на столе -->
+        <div class="table-center">
+            <div class="deck-container">
+                <div class="deck-card deck-3"></div>
+                <div class="deck-card deck-2"></div>
+                <div class="deck-card deck-1">🂠</div>
+            </div>
+            <div id="trump-container" class="trump-card-place" title="Козырь">
+                <!-- Сюда встанет козырная карта -->
+            </div>
+        </div>
+
+        <!-- Карты противника (Бот) -->
+        <div class="hand">
+            <h2>Противник: <span id="bot-cards-count">4 карты</span></h2>
+            <div id="bot-cards" class="cards-row"></div>
+        </div>
+
+        <!-- Стол (активная взятка) -->
+        <div class="hand table-trick">
+            <h2>Взятка на столе</h2>
+            <div id="trick-cards" class="cards-row"></div>
+        </div>
+
+        <!-- Карты игрока -->
+        <div class="hand">
+            <h2>Ваши карты:</h2>
+            <div id="player-cards" class="cards-row"></div>
+        </div>
+
+        <div id="status-message">Нажмите «Новая игра», чтобы начать!</div>
+
+        <div class="controls">
+            <button id="btn-start" onclick="startGame()">Новая игра</button>
+            <button id="btn-pass" onclick="passTurn()" disabled>Бито / Пас</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
