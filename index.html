@@ -3,58 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Буркозёл</title>
+    <title>Игра 21</title>
+
+    <!-- Yandex.Metrika counter -->
+    <script type="text/javascript" >
+       (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+       m[i].l=1*new Date();
+       for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+       k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+       (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+
+       ym(113541777, "init", {
+            clickmap:true,
+            trackLinks:true,
+            accurateTrackBounce:true,
+            webvisor:true
+       });
+    </script>
+    <noscript><div><img src="https://mc.yandex.ru/watch/113541777" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+    <!-- /Yandex.Metrika counter -->
+
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="game-container">
+        <!-- Шапка с профилем, кнопкой переключения и балансом -->
         <div class="user-profile">
-            <div class="user-info-left" style="display: flex; align-items: center;">
+            <div class="user-info-left" style="display: flex; align-items: center; gap: 6px;">
                 <span id="user-name" class="user-name">Игрок</span>
-                <!-- Кнопка переключения обратно на игру 21 -->
-                <a href="https://jefbull.github.io/o4ko/" style="background: #2b5278; color: #fff; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; margin-left: 8px; display: inline-block;">♠️ В игру 21</a>
+                <a href="https://jefbull.github.io/burkozel/" style="background: #2b5278; color: #fff; padding: 3px 8px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold;">🐐 В Буркозёл</a>
             </div>
-            <span id="game-score" class="score-badge">Очки: 0 / 31</span>
+            <div class="top-right-panel" style="display: flex; align-items: center; gap: 8px;">
+                <button id="sound-toggle" onclick="toggleSound()">🔊</button>
+                <div class="balance-badge">🪙 <span id="balance">10000</span></div>
+            </div>
         </div>
 
-        <h1>🐐 Буркозёл</h1>
+        <h1>♠️ Игра 21 ♥️</h1>
         
-        <!-- Колода карт и козырь на столе -->
-        <div class="table-center">
-            <div class="deck-container">
-                <div class="deck-card deck-3"></div>
-                <div class="deck-card deck-2"></div>
-                <div class="deck-card deck-1">🂠</div>
-            </div>
-            <div id="trump-container" class="trump-card-place" title="Козырь">
-                <!-- Сюда встанет козырная карта -->
-            </div>
+        <!-- Колода карт на столе -->
+        <div class="deck-container">
+            <div class="deck-card deck-3"></div>
+            <div class="deck-card deck-2"></div>
+            <div class="deck-card deck-1">🂠</div>
         </div>
 
-        <!-- Карты противника (Бот) -->
         <div class="hand">
-            <h2>Противник: <span id="bot-cards-count">4 карты</span></h2>
-            <div id="bot-cards" class="cards-row"></div>
+            <h2>Дилер: <span id="dealer-score">0</span></h2>
+            <div id="dealer-cards" class="cards-row"></div>
         </div>
 
-        <!-- Стол (активная взятка) -->
-        <div class="hand table-trick">
-            <h2>Взятка на столе</h2>
-            <div id="trick-cards" class="cards-row"></div>
-        </div>
-
-        <!-- Карты игрока -->
         <div class="hand">
-            <h2>Ваши карты:</h2>
+            <h2>Вы: <span id="player-score">0</span></h2>
             <div id="player-cards" class="cards-row"></div>
         </div>
 
-        <div id="status-message">Нажмите «Новая игра», чтобы начать!</div>
+        <!-- Выбор ставки фишками -->
+        <div class="chips-container" id="chips-area">
+            <div class="chips-title">Ставка: <span id="current-bet">50</span> 🪙</div>
+            <div class="chips-grid">
+                <button class="chip chip-50 active" onclick="selectBet(50)">50</button>
+                <button class="chip chip-100" onclick="selectBet(100)">100</button>
+                <button class="chip chip-250" onclick="selectBet(250)">250</button>
+                <button class="chip chip-500" onclick="selectBet(500)">500</button>
+                <button class="chip chip-1000" onclick="selectBet(1000)">1k</button>
+                <button class="chip chip-2500" onclick="selectBet(2500)">2.5k</button>
+                <button class="chip chip-5000" onclick="selectDeploy(5000)5000">5k</button>
+                <button class="chip chip-10000" onclick="selectBet(10000)">10k</button>
+                <button class="chip chip-25000" onclick="selectBet(25000)">25k</button>
+            </div>
+        </div>
 
+        <div id="status-message">Сделайте ставку и нажмите «Новая игра»!</div>
+
+        <!-- Кнопки действий -->
         <div class="controls">
             <button id="btn-start" onclick="startGame()">Новая игра</button>
-            <button id="btn-pass" onclick="passTurn()" disabled>Бито / Пас</button>
+            <button id="btn-hit" onclick="hit()" disabled>Еще</button>
+            <button id="btn-double" onclick="doubleDown()" disabled>Удвоить x2</button>
+            <button id="btn-stand" onclick="stand()" disabled>Пас</button>
         </div>
     </div>
 
