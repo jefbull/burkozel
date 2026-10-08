@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Игра 21</title>
+    <title>Игра 21 — Casino Style</title>
 
     <!-- Yandex.Metrika counter -->
     <script type="text/javascript" >
@@ -27,62 +27,69 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="game-container">
-        <!-- Шапка с профилем, кнопкой переключения и балансом -->
-        <div class="user-profile">
-            <div class="user-info-left" style="display: flex; align-items: center; gap: 6px;">
-                <span id="user-name" class="user-name">Игрок</span>
-                <a href="https://jefbull.github.io/burkozel/" style="background: #2b5278; color: #fff; padding: 3px 8px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold;">🐐 В Буркозёл</a>
+    <!-- Деревянный ободок стола казино -->
+    <div class="casino-table-border">
+        <div id="game-container">
+            
+            <!-- Шапка: Профиль, Онлайн, Кнопка переключения и Звук -->
+            <div class="user-profile">
+                <div class="user-info-left" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span id="user-name" class="user-name">Игрок</span>
+                    <span class="online-badge">🟢 <span id="online-count">24</span> онлайн</span>
+                    <a href="https://jefbull.github.io/burkozel/" style="background: #2b5278; color: #fff; padding: 3px 8px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; display: inline-block;">🐐 В Буркозёл</a>
+                </div>
+                <div class="top-right-panel">
+                    <button id="sound-toggle" onclick="toggleSound()">🔊</button>
+                    <div class="balance-badge">🪙 <span id="balance">10000</span></div>
+                </div>
             </div>
-            <div class="top-right-panel" style="display: flex; align-items: center; gap: 8px;">
-                <button id="sound-toggle" onclick="toggleSound()">🔊</button>
-                <div class="balance-badge">🪙 <span id="balance">10000</span></div>
+
+            <!-- Верхняя панель ставок и фишек -->
+            <div class="chips-container" id="chips-area">
+                <div class="chips-title">Ставка: <span id="current-bet">50</span> 🪙</div>
+                <div class="chips-grid">
+                    <button class="chip chip-50 active" onclick="selectBet(50)">50</button>
+                    <button class="chip chip-100" onclick="selectBet(100)">100</button>
+                    <button class="chip chip-250" onclick="selectBet(250)">250</button>
+                    <button class="chip chip-500" onclick="selectBet(500)">500</button>
+                    <button class="chip chip-1000" onclick="selectBet(1000)">1k</button>
+                    <button class="chip chip-2500" onclick="selectBet(2500)">2.5k</button>
+                    <button class="chip chip-5000" onclick="selectBet(5000)">5k</button>
+                    <button class="chip chip-10000" onclick="selectBet(10000)">10k</button>
+                    <button class="chip chip-25000" onclick="selectBet(25000)">25k</button>
+                </div>
             </div>
-        </div>
 
-        <h1>♠️ Игра 21 ♥️</h1>
-        
-        <!-- Колода карт на столе -->
-        <div class="deck-container">
-            <div class="deck-card deck-3"></div>
-            <div class="deck-card deck-2"></div>
-            <div class="deck-card deck-1">🂠</div>
-        </div>
-
-        <div class="hand">
-            <h2>Дилер: <span id="dealer-score">0</span></h2>
-            <div id="dealer-cards" class="cards-row"></div>
-        </div>
-
-        <div class="hand">
-            <h2>Вы: <span id="player-score">0</span></h2>
-            <div id="player-cards" class="cards-row"></div>
-        </div>
-
-        <!-- Выбор ставки фишками -->
-        <div class="chips-container" id="chips-area">
-            <div class="chips-title">Ставка: <span id="current-bet">50</span> 🪙</div>
-            <div class="chips-grid">
-                <button class="chip chip-50 active" onclick="selectBet(50)">50</button>
-                <button class="chip chip-100" onclick="selectBet(100)">100</button>
-                <button class="chip chip-250" onclick="selectBet(250)">250</button>
-                <button class="chip chip-500" onclick="selectBet(500)">500</button>
-                <button class="chip chip-1000" onclick="selectBet(1000)">1k</button>
-                <button class="chip chip-2500" onclick="selectBet(2500)">2.5k</button>
-                <button class="chip chip-5000" onclick="selectDeploy(5000)5000">5k</button>
-                <button class="chip chip-10000" onclick="selectBet(10000)">10k</button>
-                <button class="chip chip-25000" onclick="selectBet(25000)">25k</button>
+            <!-- Зона дилера -->
+            <div class="hand">
+                <div id="dealer-cards" class="cards-row"></div>
+                <div class="score-pill">dealer: <span id="dealer-score">0</span></div>
             </div>
-        </div>
 
-        <div id="status-message">Сделайте ставку и нажмите «Новая игра»!</div>
+            <!-- Колода по центру в деревянном боксе -->
+            <div class="deck-box">
+                <div class="deck-container">
+                    <div class="deck-card deck-3"></div>
+                    <div class="deck-card deck-2"></div>
+                    <div class="deck-card deck-1">🂠</div>
+                </div>
+            </div>
 
-        <!-- Кнопки действий -->
-        <div class="controls">
-            <button id="btn-start" onclick="startGame()">Новая игра</button>
-            <button id="btn-hit" onclick="hit()" disabled>Еще</button>
-            <button id="btn-double" onclick="doubleDown()" disabled>Удвоить x2</button>
-            <button id="btn-stand" onclick="stand()" disabled>Пас</button>
+            <!-- Зона игрока -->
+            <div class="hand">
+                <div id="player-cards" class="cards-row"></div>
+                <div class="score-pill"><span id="player-score">0</span></div>
+            </div>
+
+            <div id="status-message">Сделайте ставку и начните игру!</div>
+
+            <!-- Нижняя панель крупных кнопок в стиле референса -->
+            <div class="controls">
+                <button id="btn-start" class="btn-action btn-blue" onclick="startGame()">Новая игра</button>
+                <button id="btn-hit" class="btn-action" onclick="hit()" disabled>Еще</button>
+                <button id="btn-double" class="btn-action btn-gold" onclick="doubleDown()" disabled>Удвоить</button>
+                <button id="btn-stand" class="btn-action" onclick="stand()" disabled>Пас</button>
+            </div>
         </div>
     </div>
 
