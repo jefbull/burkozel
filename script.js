@@ -61,7 +61,6 @@ function checkCombinations(hand, trumpSuit) {
 }
 
 function renderCards() {
-    // Рендер руки игрока
     const playerContainer = document.getElementById('player-cards');
     if (playerContainer) {
         playerContainer.innerHTML = '';
@@ -79,7 +78,6 @@ function renderCards() {
         });
     }
 
-    // Рендер руки бота (рубашкой вверх)
     const botContainer = document.getElementById('bot-cards');
     if (botContainer) {
         botContainer.innerHTML = '';
@@ -91,7 +89,6 @@ function renderCards() {
         });
     }
 
-    // Рендер взятки на столе
     const trickContainer = document.getElementById('trick-cards');
     if (trickContainer) {
         trickContainer.innerHTML = '';
@@ -127,7 +124,7 @@ function startGame() {
 
     document.getElementById('btn-start').textContent = 'Перезапустить';
     document.getElementById('btn-pass').disabled = false;
-    document.getElementById('status-message').textContent = 'Ваш ход! Выберите от 1 до 4 карт одного достоинства.';
+    document.getElementById('status-message').textContent = 'Ваш ход! Выберите карты ОДНОЙ масти для атаки.';
 
     const combo = checkCombinations(playerHand, trumpCard.suit);
     if (combo) {
@@ -142,11 +139,11 @@ function selectCardToPlay(index) {
 
     const card = playerHand[index];
 
-    // Если уже выбраны карты, проверяем, чтобы новое достоинство совпадало (заход одинаковыми картами)
+    // Проверяем правило: все выбранные карты для захода должны быть ОДНОЙ масти
     if (selectedCardsIndices.length > 0) {
         const firstCard = playerHand[selectedCardsIndices[0]];
-        if (card.value !== firstCard.value) {
-            // Разрешаем сменить выбор, если кликнули на другую карту
+        if (card.suit !== firstCard.suit) {
+            // Если выбрали карту другой масти — сбрасываем выбор и начинаем собирать новую масть
             selectedCardsIndices = [index];
             renderCards();
             return;
@@ -172,7 +169,6 @@ function passTurn() {
         return;
     }
 
-    // Игрок сделал ход
     currentTrick = selectedCardsIndices.map(i => playerHand[i]);
     playerHand = playerHand.filter((_, i) => !selectedCardsIndices.includes(i));
     selectedCardsIndices = [];
@@ -225,12 +221,11 @@ function botDefense() {
 function botAttack() {
     if (!gameActive || botHand.length === 0) return;
 
-    // Бот ходит первой картой с руки
     const attackCard = botHand.splice(0, 1)[0];
     currentTrick = [attackCard];
     turnOwner = 'player';
     
-    document.getElementById('status-message').textContent = 'Бот сделал ход! Выберите ответ или сбросьте карты.';
+    document.getElementById('status-message').textContent = 'Бот сделал ход! Выберите карты одной масти для ответа.';
     renderCards();
 }
 
